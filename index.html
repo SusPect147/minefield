@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minefield Start Screen</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            touch-action: none;
+            font-family: Arial, sans-serif;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+        *::selection {
+            background: transparent;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 3;
+            pointer-events: none;
+        }
+        canvas.game-active {
+            pointer-events: auto;
+        }
+        .gradient {
+            position: absolute;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .gradient1 { width: 300px; height: 300px; }
+        .gradient2 { width: 400px; height: 400px; }
+        .gradient3 { width: 350px; height: 350px; }
+        .center-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 4;
+        }
+        .title {
+            font-size: 3rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            transition: color 0.1s, transform 0.1s;
+        }
+        @keyframes glitch-green {
+            0% { color: #fff; transform: translate(0, 0) rotate(0deg) scale(1); }
+            20% { color: #0f0; transform: translate(2px, -2px) rotate(2deg) scale(1.05); }
+            40% { color: #fff; transform: translate(-2px, 2px) rotate(-2deg) scale(1); }
+            60% { color: #0f0; transform: translate(1px, 1px) rotate(1deg) scale(1.1); }
+            80% { color: #fff; transform: translate(-1px, -1px) rotate(-1deg) scale(1); }
+            100% { color: #fff; transform: translate(0, 0) rotate(0deg) scale(1); }
+        }
+        .glitch-active {
+            animation: glitch-green 0.3s;
+        }
+        .play-image {
+            width: 150px;
+            height: 150px;
+            cursor: pointer;
+            z-index: 4;
+            transition: transform 0.2s;
+        }
+        .play-image:hover {
+            transform: scale(1.1);
+        }
+        .play-text {
+            font-size: 1rem;
+            margin-top: 1rem;
+            text-transform: lowercase;
+        }
+        .leaderboard-button, .info-button, .exit-button {
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            border-radius: 25px;
+            color: #fff;
+            font-size: 1.2rem;
+            padding: 10px 20px;
+            cursor: pointer;
+            z-index: 7;
+            text-transform: uppercase;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .leaderboard-button {
+            position: absolute;
+            bottom: 2rem;
+        }
+        .info-button {
+            position: absolute;
+            top: 2rem;
+        }
+        .exit-button {
+            position: absolute;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .leaderboard-button:hover, .info-button:hover, .exit-button:hover, .leaderboard-close-button:hover {
+            transform: scale(1.1);
+            border-color: #fff;
+        }
+        .hidden {
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        button, .play-image {
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        button:focus, .play-image:focus {
+            outline: none;
+        }
+        .score-text, .timer-text, .gameover-text {
+            position: absolute;
+            z-index: 5;
+            pointer-events: none;
+            font-size: 1.5rem;
+        }
+        .score-text {
+            top: 1rem;
+            left: 1rem;
+        }
+        .timer-text {
+            top: 1rem;
+            right: 1rem;
+        }
+        .gameover-text {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            text-align: center;
+            z-index: 6;
+        }
+        .leaderboard-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .leaderboard-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .leaderboard-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 6;
+            width: 300px;
+            text-align: center;
+        }
+        .leaderboard-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+        .leaderboard-list {
+            list-style-type: none;
+            padding: 0;
+            counter-reset: item;
+        }
+        .leaderboard-list li {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+        .leaderboard-list li::before {
+            content: counter(item) ". ";
+            counter-increment: item;
+            margin-right: 10px;
+        }
+        .leaderboard-close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            border-radius: 25px;
+            color: #fff;
+            font-size: 1rem;
+            padding: 5px 10px;
+            cursor: pointer;
+            z-index: 7;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .gameover-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .gameover-overlay.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <button class="info-button" onclick="window.open('https://telegra.ph/MineFied-10-18', '_blank')">What is this game?</button>
+    <div class="gradient gradient1"></div>
+    <div class="gradient gradient2"></div>
+    <div class="gradient gradient3"></div>
+    <div class="center-container">
+        <h1 class="title">Minefield</h1>
+        <img src="duck.gif" class="play-image" alt="Play Button">
+        <p class="play-text">press to play</p>
+    </div>
+    <button class="leaderboard-button">Leaderboard</button>
+    <button class="exit-button hidden">Exit</button>
+    <p class="score-text hidden">Score: 0</p>
+    <p class="timer-text hidden">Time: 30</p>
+    <div class="gameover-overlay hidden"></div>
+    <p class="gameover-text hidden">Your score: 0</p>
+    <div class="leaderboard-overlay hidden"></div>
+    <div class="leaderboard-container hidden">
+        <button class="leaderboard-close-button">X</button>
+        <h2 class="leaderboard-title">Leaderboard</h2>
+        <ol class="leaderboard-list"></ol>
+    </div>
+    <script>
+        // Randomize gradient positions
+        function randomizeGradients() {
+            const gradients = document.querySelectorAll('.gradient');
+            gradients.forEach(gradient => {
+                const maxOffsetX = window.innerWidth - gradient.offsetWidth;
+                const maxOffsetY = window.innerHeight - gradient.offsetHeight;
+                const randomX = Math.random() * maxOffsetX;
+                const randomY = Math.random() * maxOffsetY;
+                gradient.style.left = `${randomX}px`;
+                gradient.style.top = `${randomY}px`;
+            });
+        }
+
+        // Glitch effect for title
+        function triggerGlitch() {
+            const title = document.querySelector('.title');
+            if (Math.random() < 0.1) {
+                title.classList.add('glitch-active');
+                setTimeout(() => {
+                    title.classList.remove('glitch-active');
+                }, 300);
+            }
+        }
+
+        let particles = [];
+        let bombs = [];
+        let score = 0;
+        let gameState = 'menu'; // 'menu', 'playing', 'gameover', 'leaderboard'
+        let gameStartTime = 0;
+        const gameDuration = 30000; // 30 seconds
+        const bombAnimationDuration = 2000; // 2 seconds
+        const spawnAnimationDuration = 500; // 0.5 seconds
+        let fieldX, fieldY, fieldWidth, fieldHeight;
+        let gridOffsets = [];
+
+        function preload() {
+            // No image loading needed since we're using emoji
+        }
+
+        function updateFieldDimensions() {
+            const topMargin = windowHeight * 0.04 + 60; // 4% + approximate exit button height (40px + 20px padding/margins)
+            const bottomMargin = windowHeight * 0.04;
+            fieldWidth = windowWidth * (1 - 0.06); // 3% margin on each side
+            fieldHeight = windowHeight - topMargin - bottomMargin;
+            fieldX = windowWidth * 0.03; // 3% from left
+            fieldY = topMargin;
+        }
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            textAlign(CENTER, CENTER);
+            textSize(40); // Size for bomb emoji
+            for (let i = 0; i < 100; i++) {
+                particles.push(new Particle());
+            }
+            updateFieldDimensions();
+            // Initialize grid offsets for animation
+            for (let i = 0; i < 11; i++) {
+                gridOffsets.push({
+                    x: random(-5, 5),
+                    y: random(-5, 5),
+                    vx: random(-0.05, 0.05),
+                    vy: random(-0.05, 0.05)
+                });
+            }
+            document.querySelector('.play-image').addEventListener('click', () => {
+                document.querySelector('.center-container').classList.add('hidden');
+                document.querySelector('.info-button').classList.add('hidden');
+                document.querySelector('.leaderboard-button').classList.add('hidden');
+                document.querySelector('.exit-button').classList.remove('hidden');
+                document.querySelector('.score-text').classList.remove('hidden');
+                document.querySelector('.timer-text').classList.remove('hidden');
+                gameState = 'playing';
+                gameStartTime = millis();
+                document.querySelector('canvas').classList.add('game-active');
+            });
+            document.querySelector('.exit-button').addEventListener('click', () => {
+                gameState = 'gameover';
+                bombs = [];
+                score = 0;
+                document.querySelector('.score-text').textContent = `Score: ${score}`;
+                document.querySelector('.timer-text').textContent = `Time: 30`;
+                document.querySelector('.gameover-overlay').classList.remove('visible');
+                document.querySelector('.gameover-text').classList.add('hidden');
+                document.querySelector('.center-container').classList.remove('hidden');
+                document.querySelector('.info-button').classList.remove('hidden');
+                document.querySelector('.leaderboard-button').classList.remove('hidden');
+                document.querySelector('.exit-button').classList.add('hidden');
+                document.querySelector('.score-text').classList.add('hidden');
+                document.querySelector('.timer-text').classList.add('hidden');
+                gameState = 'menu';
+                document.querySelector('canvas').classList.remove('game-active');
+            });
+            document.querySelector('.leaderboard-button').addEventListener('click', () => {
+                document.querySelector('.leaderboard-overlay').classList.add('visible');
+                document.querySelector('.leaderboard-container').classList.remove('hidden');
+                gameState = 'leaderboard';
+                // Populate placeholder leaderboard since no DB
+                const leaderboardList = document.querySelector('.leaderboard-list');
+                leaderboardList.innerHTML = '';
+                for (let i = 1; i <= 10; i++) {
+                    const li = document.createElement('li');
+                    li.textContent = `Player ${i} - Score: ${110 - i * 10}`;
+                    leaderboardList.appendChild(li);
+                }
+            });
+            document.querySelector('.leaderboard-close-button').addEventListener('click', () => {
+                document.querySelector('.leaderboard-overlay').classList.remove('visible');
+                document.querySelector('.leaderboard-container').classList.add('hidden');
+                gameState = 'menu';
+            });
+        }
+
+        function draw() {
+            clear();
+            for (let particle of particles) {
+                particle.update();
+                particle.show();
+            }
+            if (gameState === 'playing') {
+                // Update grid offsets for animation
+                for (let offset of gridOffsets) {
+                    offset.x += offset.vx;
+                    offset.y += offset.vy;
+                    if (offset.x < -5 || offset.x > 5) offset.vx *= -1;
+                    if (offset.y < -5 || offset.y > 5) offset.vy *= -1;
+                }
+                // Draw semi-transparent grid with equal spacing
+                stroke(255, 255, 255, 100);
+                strokeWeight(2);
+                let cellSize = Math.min(fieldWidth, fieldHeight) / 10; // Equal spacing for square cells
+                let numCellsX = Math.floor(fieldWidth / cellSize);
+                let numCellsY = Math.floor(fieldHeight / cellSize);
+                let extension = 10; // Pixels to extend inner lines
+                for (let i = 0; i <= numCellsX; i++) {
+                    let offset = gridOffsets[i % gridOffsets.length];
+                    // Vertical lines
+                    let x = fieldX + i * cellSize + offset.x;
+                    let yStart = fieldY - (i === 0 || i === numCellsX ? 0 : extension);
+                    let yEnd = fieldY + fieldHeight + (i === 0 || i === numCellsX ? 0 : extension);
+                    line(x, yStart, x, yEnd);
+                }
+                for (let i = 0; i <= numCellsY; i++) {
+                    let offset = gridOffsets[i % gridOffsets.length];
+                    // Horizontal lines
+                    let y = fieldY + i * cellSize + offset.y;
+                    let xStart = fieldX - (i === 0 || i === numCellsY ? 0 : extension);
+                    let xEnd = fieldX + fieldWidth + (i === 0 || i === numCellsY ? 0 : extension);
+                    line(xStart, y, xEnd, y);
+                }
+                // Adjust bomb spawn probability based on time left
+                let timeElapsed = millis() - gameStartTime;
+                let spawnProbability = 0.02; // Base probability
+                if (timeElapsed > 20000) { // Last 10 seconds
+                    spawnProbability *= 1.5; // 1.5x = 0.03
+                }
+                if (timeElapsed > 25000) { // Last 5 seconds
+                    spawnProbability *= 2 / 1.5; // 2x base = 0.04
+                }
+                if (Math.random() < spawnProbability) {
+                    bombs.push(new Bomb(fieldX, fieldY, fieldWidth, fieldHeight));
+                }
+                bombs = bombs.filter(bomb => bomb.update());
+                for (let bomb of bombs) {
+                    bomb.show();
+                }
+                document.querySelector('.score-text').textContent = `Score: ${score}`;
+                let timeLeft = Math.max(0, Math.floor((gameDuration - timeElapsed) / 1000));
+                document.querySelector('.timer-text').textContent = `Time: ${timeLeft}`;
+                if (timeElapsed > gameDuration) {
+                    gameState = 'gameover';
+                    document.querySelector('.gameover-overlay').classList.add('visible');
+                    document.querySelector('.gameover-text').textContent = `Your score: ${score}`;
+                    document.querySelector('.gameover-text').classList.remove('hidden');
+                    document.querySelector('.exit-button').classList.add('hidden');
+                    document.querySelector('.score-text').classList.add('hidden');
+                    document.querySelector('.timer-text').classList.add('hidden');
+                    bombs = [];
+                    score = 0;
+                    document.querySelector('canvas').classList.remove('game-active');
+                    setTimeout(() => {
+                        document.querySelector('.gameover-overlay').classList.remove('visible');
+                        document.querySelector('.gameover-text').classList.add('hidden');
+                        document.querySelector('.center-container').classList.remove('hidden');
+                        document.querySelector('.info-button').classList.remove('hidden');
+                        document.querySelector('.leaderboard-button').classList.remove('hidden');
+                        gameState = 'menu';
+                    }, 3000);
+                }
+            }
+        }
+
+        function mousePressed() {
+            if (gameState === 'playing') {
+                bombs = bombs.filter(bomb => {
+                    if (bomb.isClicked(mouseX, mouseY, fieldX, fieldY)) {
+                        score++;
+                        return false;
+                    }
+                    return true;
+                });
+            }
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            updateFieldDimensions();
+            randomizeGradients();
+        }
+
+        class Particle {
+            constructor() {
+                this.pos = createVector(random(width), random(height));
+                this.vel = createVector(random(-1, 1), random(-1, 1));
+                this.size = random(2, 5);
+            }
+            update() {
+                this.pos.add(this.vel);
+                if (this.pos.x < 0 || this.pos.x > width) this.vel.x *= -1;
+                if (this.pos.y < 0 || this.pos.y > height) this.vel.y *= -1;
+            }
+            show() {
+                noStroke();
+                fill(255, 255, 255, 100);
+                ellipse(this.pos.x, this.pos.y, this.size);
+            }
+        }
+
+        class Bomb {
+            constructor(fieldX, fieldY, fieldWidth, fieldHeight) {
+                this.pos = createVector(
+                    fieldX + random(0, fieldWidth),
+                    fieldY + random(0, fieldHeight)
+                );
+                this.size = 50;
+                this.startTime = millis();
+                this.spawnStartTime = millis();
+            }
+            update() {
+                if (millis() - this.startTime > bombAnimationDuration) {
+                    return false;
+                }
+                return true;
+            }
+            show() {
+                push();
+                // Calculate spawn animation scale (0 to 1 over 0.5 seconds)
+                let spawnProgress = (millis() - this.spawnStartTime) / spawnAnimationDuration;
+                let scaleFactor = Math.min(spawnProgress, 1); // Scale from 0 to 1
+                translate(this.pos.x, this.pos.y);
+                scale(scaleFactor, scaleFactor); // Use p5.js scale function
+                fill(255);
+                text('💣', 0, 0);
+                pop();
+            }
+            isClicked(x, y, fieldX, fieldY) {
+                let d = dist(x, y, this.pos.x, this.pos.y);
+                return d < this.size / 2;
+            }
+        }
+
+        window.addEventListener('load', () => {
+            randomizeGradients();
+        });
+
+        setInterval(triggerGlitch, 500);
+    </script>
+</body>
+</html>
